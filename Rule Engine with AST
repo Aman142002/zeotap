@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Oct 26 18:50:06 2024
+
+@author: amankumar
+"""
+
+class Node:
+    def __init__(self, node_type, value=None, left=None, right=None):
+        self.type = node_type  # "operator" or "operand"
+        self.value = value      # Optional value for operand nodes
+        self.left = left        # Reference to left child (Node)
+        self.right = right      # Reference to right child (Node)
+
+    def __repr__(self):
+        return f"Node(type={self.type}, value={self.value}, left={self.left}, right={self.right})"
+
+import json
+from typing import List, Dict, Union
+
+# Function to create a rule and return its AST representation
+def create_rule(rule_string: str) -> Node:
+    # Replace with actual parsing logic
+    # For demonstration, a simple mock-up of AST creation is used here.
+    # In practice, you would implement a parser to create the AST from the rule_string.
+    # This is just a placeholder to demonstrate functionality.
+    if "AND" in rule_string:
+        left = Node("operand", value="age > 30")  # Mock left operand
+        right = Node("operand", value="department = 'Sales'")  # Mock right operand
+        return Node("operator", value="AND", left=left, right=right)
+    elif "OR" in rule_string:
+        left = Node("operand", value="age < 25")
+        right = Node("operand", value="salary > 50000")
+        return Node("operator", value="OR", left=left, right=right)
+    else:
+        # Handle invalid rule strings
+        raise ValueError("Invalid rule string")
+
+# Function to combine multiple rules into a single AST
+def combine_rules(rules: List[str]) -> Node:
+    combined = None
+    for rule in rules:
+        rule_ast = create_rule(rule)
+        if combined is None:
+            combined = rule_ast
+        else:
+            # Combine using AND for this example; adjust as needed
+            combined = Node("operator", value="AND", left=combined, right=rule_ast)
+    return combined
+
+# Function to evaluate the rule against given data
+def evaluate_rule(ast: Node, data: Dict[str, Union[str, int]]) -> bool:
+    if ast.type == "operand":
+        # Simple evaluation logic; in practice, this should be more comprehensive.
+        left_operand, operator, right_operand = ast.value.split(" ")
+        left_value = data[left_operand]
+        if operator == ">":
+            return left_value > int(right_operand)
+        elif operator == "=":
+            return left_value == right_operand
+    elif ast.type == "operator":
+        left_eval = evaluate_rule(ast.left, data)
+        right_eval = evaluate_rule(ast.right, data)
+        if ast.value == "AND":
+            return left_eval and right_eval
+        elif ast.value == "OR":
+            return left_eval or right_eval
+    return False
+
+def test_rule_engine():
+    # Test case 1: Create rules
+    rule1 = "age > 30 AND department = 'Sales'"
+    rule2 = "age < 25 AND department = 'Marketing'"
+    
+    ast1 = create_rule(rule1)
+    ast2 = create_rule(rule2)
+
+    print("AST for Rule 1:", ast1)
+    print("AST for Rule 2:", ast2)
+
+    # Test case 2: Combine rules
+    combined_ast = combine_rules([rule1, rule2])
+    print("Combined AST:", combined_ast)
+
+    # Test case 3: Evaluate rules
+    test_data = {"age": 35, "department": "Sales", "salary": 60000}
+    print("Evaluating Rule 1:", evaluate_rule(ast1, test_data))
+    print("Evaluating Rule 2:", evaluate_rule(ast2, test_data))
+    print("Evaluating Combined Rule:", evaluate_rule(combined_ast, test_data))
+
+# Run the tests
+test_rule_engine()
