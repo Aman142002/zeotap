@@ -1,0 +1,92 @@
+!pip install requests matplotlib
+import requests
+import sqlite3
+import time
+from datetime import datetime
+import matplotlib.pyplot as plt
+
+DATABASE = 'weather_data.db'
+
+def init_db():
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS daily_weather (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        avg_temp REAL,
+        max_temp REAL,
+        min_temp REAL,
+        dominant_condition TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.commit()
+    conn.close()
+
+def fetch_weather_data(api_key, cities):
+    url = "http://api.openweathermap.org/data/2.5/weather"
+    weather_data = {}
+    for city in cities:
+        response = requests.get(url, params={'q': city, 'appid': api_key, 'units': 'metric'})
+        if response.status_code == 200:
+            weather_data[city] = response.json()
+        else:
+            print(f"Error fetching data for {city}")
+    return weather_data
+
+# Process and store weather data
+def process_weather_data(weather_data):
+    daily_summaries = {}
+    for city, data in weather_data.items():
+        temp = data['main']['temp']
+        feels_like = data['main']['feels_like']
+        main_condition = data['weather'][0]['main']
+        dt = datetime.fromtimestamp(data['dt'])
+        date_str = dt.strftime("%Y-%m-%d")
+
+        if date_str not in daily_summaries:
+            daily_summaries[date_str] = {
+                'total_temp': 0,
+                'count': 0,
+                'max_temp': float('-inf'),
+                'min_temp': float('inf'),
+                'conditions': {}
+            }
+
+        daily_summaries[date_str]['total_temp'] += temp
+        daily_summaries[date_str]['count'] += 1
+        daily_summaries[date_str]['max_temp'] = max(daily_summaries[date_str]['max_temp'], temp)
+        daily_summaries[date_str]['min_temp'] = min(daily_summaries[date_str]['min_temp'], temp)
+        daily_summaries[date_str]['conditions'][main_condition] = daily_summaries[date_str]['conditions'].get(main_condition, 0) + 1
+
+    save_daily_summaries(daily_summaries)
+
+def save_daily_summaries(daily_summaries):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    for date, summary in daily_summaries.items():
+        avg_temp = summary['total_temp'] / summary['count']
+        dominant_condition = max(summary['conditions'], key=summary['conditions'].get)
+        cursor.execute('''INSERT INTO daily_weather (date, avg_temp, max_temp, min_temp, dominant_condition) 
+                          VALUES (?, ?, ?, ?, ?)''', 
+                       (date, avg_temp, summary['max_temp'], summary['min_temp'], dominant_condition))
+    conn.commit()
+    conn.close()
+
+init_db()
+
+API_KEY = 'c6af54a62806d79d030040d3a8bfccc8'  
+CITIES = ['Delhi', 'Mumbai', 'Chennai', 'Bangalore', 'Kolkata', 'Hyderabad']
+
+weather_data = fetch_weather_data(API_KEY, CITIES)
+process_weather_data(weather_data)
+def query_daily_weather():
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM daily_weather')
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+results = query_daily_weather()
+for row in results:
+    print(row)
